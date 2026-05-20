@@ -130,14 +130,20 @@ public class program_language {
         if (cmd.equals("var")) {
             if (code.length < 3) return "Error: var needs name and value";
 
-            String name  = code[1];
-            String value = code[2];
+            String name = code[1];
 
-            if (value.equals("input")) {
-                value = JOptionPane.showInputDialog("Enter " + name + ":");
+            // If the user wants input, handle it BEFORE math evaluation
+            if (code[2].equals("input")) {
+                String userInput = JOptionPane.showInputDialog("Enter " + name + ":");
+                vars.put(name, new Variabele(name, userInput));
+                return "";
             }
 
-            vars.put(name, new Variabele(name, value));
+            // Otherwise: evaluate math or text normally
+            String[] expr = Arrays.copyOfRange(code, 2, code.length);
+            String result = resolveWords(expr, 0);
+
+            vars.put(name, new Variabele(name, result));
             return "";
         }
 
@@ -165,8 +171,7 @@ public class program_language {
     }
 
     static String resolveWords(String[] code, int startIndex) {
-        StringBuilder out = new StringBuilder();
-
+    StringBuilder out = new StringBuilder();
         List<String> changers = Arrays.asList("+", "-", "x", ":");
 
         for (int i = startIndex; i < code.length; i++) {
@@ -220,6 +225,7 @@ public class program_language {
 
         return out.toString();
     }
+
 
 
     public static boolean isNumeric(String str) {
