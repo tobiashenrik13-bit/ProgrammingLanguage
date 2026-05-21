@@ -80,7 +80,6 @@ public class program_language {
 
         String cmd = code[0];
 
-        // active only if all ifStack conditions are true
         boolean active = true;
         for (boolean cond : ifStack) {
             if (!cond) {
@@ -102,17 +101,47 @@ public class program_language {
 
             boolean condition;
             switch (op) {
-                case "==":
-                    condition = left.equals(right);
-                    break;
-                case "!=":
-                    condition = !left.equals(right);
-                    break;
-                default:
-                    return "Error: unknown operator " + op;
+                case "==": condition = left.equals(right); break;
+                case "!=": condition = !left.equals(right); break;
+                default: return "Error: unknown operator " + op;
             }
 
             ifStack.push(condition);
+            return "";
+        }
+
+        // ELSE IF
+        if (cmd.equals("else") && code[1].equals("if")) {
+            if (ifStack.isEmpty()) return "Error: else without if";
+
+            boolean last = ifStack.pop();
+            ifStack.push(!last);
+            if (code.length < 5) return "Error: invalid ELSE IF syntax";
+
+            String left = code[2];
+            String op   = code[3];
+            String right= code[4];
+
+            if (vars.containsKey(left))  left  = vars.get(left).waarde;
+            if (vars.containsKey(right)) right = vars.get(right).waarde;
+
+            boolean condition;
+            switch (op) {
+                case "==": condition = left.equals(right); break;
+                case "!=": condition = !left.equals(right); break;
+                default: return "Error: unknown operator " + op;
+            }
+
+            ifStack.push(condition);
+            return "";
+        }
+
+        // ELSE
+        if (cmd.equals("else")) {
+            if (ifStack.isEmpty()) return "Error: else without if";
+
+            boolean last = ifStack.pop();
+            ifStack.push(!last);
             return "";
         }
 
@@ -123,7 +152,6 @@ public class program_language {
             return "";
         }
 
-        // if parent IFs are false, skip this line
         if (!active) return "";
 
         // VAR
@@ -132,14 +160,12 @@ public class program_language {
 
             String name = code[1];
 
-            // If the user wants input, handle it BEFORE math evaluation
             if (code[2].equals("input")) {
                 String userInput = JOptionPane.showInputDialog("Enter " + name + ":");
                 vars.put(name, new Variabele(name, userInput));
                 return "";
             }
 
-            // Otherwise: evaluate math or text normally
             String[] expr = Arrays.copyOfRange(code, 2, code.length);
             String result = resolveWords(expr, 0);
 
@@ -171,24 +197,24 @@ public class program_language {
     }
 
     static String resolveWords(String[] code, int startIndex) {
-    StringBuilder out = new StringBuilder();
+        StringBuilder out = new StringBuilder();
         List<String> changers = Arrays.asList("+", "-", "x", ":");
 
         for (int i = startIndex; i < code.length; i++) {
 
-            // SAFETY: check if we have at least 3 tokens ahead
+            // Check if we have enough tokens for math or Random
             if (i + 2 < code.length) {
                 String t1 = code[i];
                 String t2 = code[i + 1];
                 String t3 = code[i + 2];
 
-                // Replace variables with their values
+
                 if (vars.containsKey(t1)) t1 = vars.get(t1).waarde;
+                if (vars.containsKey(t2)) t2 = vars.get(t2).waarde;
                 if (vars.containsKey(t3)) t3 = vars.get(t3).waarde;
 
-                // Check pattern: number operator number
+                // MATH
                 if (isNumeric(t1) && changers.contains(t2) && isNumeric(t3)) {
-
                     int a = Integer.parseInt(t1);
                     int b = Integer.parseInt(t3);
                     int result = 0;
@@ -197,21 +223,32 @@ public class program_language {
                         case "+": result = a + b; break;
                         case "-": result = a - b; break;
                         case "x": result = a * b; break;
-                        case ":": 
+                        case ":":
                             if (b == 0) return "Error: division by zero";
-                            result = a / b; 
+                            result = a / b;
                             break;
                     }
 
                     out.append(result);
+                    i += 2;
+                    continue;
+                }
 
-                    // Skip the next 2 tokens because we already processed them
+                // RANDOM
+                if (t1.equals("Random") && isNumeric(t2) && isNumeric(t3)) {
+                    int min = Integer.parseInt(t2);
+                    int max = Integer.parseInt(t3);
+
+                    Random random = new Random();
+                    int result = random.nextInt((max - min) + 1) + min;
+
+                    out.append(result);
                     i += 2;
                     continue;
                 }
             }
 
-            // If not math, print normally
+            // Normal word / variable
             String word = code[i];
 
             if (vars.containsKey(word)) {
@@ -226,19 +263,13 @@ public class program_language {
         return out.toString();
     }
 
-
-
     public static boolean isNumeric(String str) {
-        if (str == null || str.trim().isEmpty()) {
-            return false; // Null or empty string is not numeric
-        }
-        str = str.trim();
-
+        if (str == null || str.trim().isEmpty()) return false;
         try {
-            Double.parseDouble(str); // Try parsing as a double
+            Double.parseDouble(str.trim());
             return true;
         } catch (NumberFormatException e) {
-            return false; // Parsing failed, not a number
+            return false;
         }
     }
 }
